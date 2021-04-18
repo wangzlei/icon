@@ -59,6 +59,8 @@ jobs:
         run: |
           cd $LAYER_PATH
           ./run.sh
+          layerArn=$(${{ env.UTILS }}/layer.sh -a)
+          echo $layerArn
 
 #      - name: deploy layer
 #        run: |
