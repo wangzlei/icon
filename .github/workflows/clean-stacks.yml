@@ -1,0 +1,44 @@
+name: "Clean CloudFormation Stacks"
+
+on:
+  workflow_dispatch:
+    inputs:
+      stacks:
+        description: 'stacks to be deleted'
+        required: true
+        default: 'adot-*'
+
+jobs:
+  clean-resources:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: ${{matrix.region}}
+
+    strategy:
+      matrix:
+        region: [ us-east-1, us-east-2, us-west-1, us-west-2, ap-south-1, ap-northeast-3, ap-northeast-2, ap-southeast-1, ap-southeast-2, ap-northeast-1, ca-central-1, eu-central-1, eu-west-1, eu-west-2, eu-west-3, eu-north-1, sa-east-1 ]
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Configure AWS Credentials CN
+        uses: aws-actions/configure-aws-credentials@v1
+        if: ${{ matrix.region == 'cn-north-1' ||  matrix.region == 'cn-northwest-1'}}
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_TEST_CN }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_TEST_CN }}
+          mask-aws-account-id: false
+          aws-region: ${{matrix.region}}
+      - name: Configure AWS Credentials standard
+        uses: aws-actions/configure-aws-credentials@v1
+        if: ${{ matrix.region != 'cn-north-1' &&  matrix.region != 'cn-northwest-1'}}
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_TEST }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_TEST }}
+          mask-aws-account-id: false
+          aws-region: ${{matrix.region}}
+
+      - name: clean stacks
+        run: |
+          echo ${{ github.event.inputs.stacks }}
+          adot/utils/sam/cleanStacks.sh ${{ github.event.inputs.stacks }}

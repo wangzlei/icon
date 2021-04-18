@@ -1,0 +1,100 @@
+name: Continuous Monitoring of Dockerhub and public ECR
+on:
+  schedule:
+    - cron: '0 1 * * *' # every day
+
+jobs:
+  monitor-ecr:
+    name: Monitor public ECR
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_TEST }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_TEST }}
+          aws-region: us-east-1
+      
+      - name: Login to Public ECR
+        uses: docker/login-action@v1
+        with:
+          registry: public.ecr.aws
+          
+      - name: Pull an image from public ECR
+        id: pull-from-ecr
+        run: docker pull public.ecr.aws/xray/aws-xray-daemon:latest
+
+      - name: Publish metric on pulling an image
+        if: ${{ always() }}
+        run: |
+          if [[ "${{ steps.pull-from-ecr.outcome }}" == "failure" ]]; then
+            aws cloudwatch put-metric-data --metric-name PullImageFailureFromECR --dimensions failure=rate --namespace MonitorDaemon --value 1 --timestamp $(date +%s)
+          else
+            aws cloudwatch put-metric-data --metric-name PullImageFailureFromECR --dimensions failure=rate --namespace MonitorDaemon --value 0 --timestamp $(date +%s)
+          fi
+      - name: Run daemon image
+        run: |
+          docker run -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -p 0.0.0.0:2000:2000/udp --name xray-daemon public.ecr.aws/xray/aws-xray-daemon:latest -o -n us-west-2 -b 0.0.0.0:2000 &
+          sleep 30
+
+      - name: Send invalid request
+        run: |
+          docker stats --no-stream
+          python3 integration/invalid_input.py
+          sleep 10
+          docker stats --no-stream
+
+      - name: Publish metrics on daemon startup
+        if: ${{ always() }}
+        run: |
+          if [[ "$(docker container inspect -f '{{.State.Status}}' xray-daemon )" != "running" ]]; then
+            aws cloudwatch put-metric-data --metric-name DaemonImageStartupFailureFromECR --dimensions failure=rate --namespace MonitorDaemon --value 1 --timestamp $(date +%s)
+          else
+            aws cloudwatch put-metric-data --metric-name DaemonImageStartupFailureFromECR --dimensions failure=rate --namespace MonitorDaemon --value 0 --timestamp $(date +%s)
+          fi
+
+  monitor-dockerhub:
+    name: Monitor docker hub
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_TEST }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_TEST }}
+          aws-region: us-east-1
+
+      - name: Pull an image from docker hub
+        id: pull-from-dockerhub
+        run: docker pull amazon/aws-xray-daemon:3.3.0
+
+      - name: Publish metric on pulling an image
+        if: ${{ always() }}
+        run: |
+          if [[ "${{ steps.pull-from-dockerhub.outcome }}" == "failure"  ]]; then
+            aws cloudwatch put-metric-data --metric-name PullImageFailureFromDockerhub --dimensions failure=rate --namespace MonitorDaemon --value 1 --timestamp $(date +%s)
+          else
+            aws cloudwatch put-metric-data --metric-name PullImageFailureFromDockerhub --dimensions failure=rate --namespace MonitorDaemon --value 0 --timestamp $(date +%s)
+          fi
+      - name: Run daemon image
+        run: |
+          docker run -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -p 0.0.0.0:2000:2000/udp --name xray-daemon amazon/aws-xray-daemon:3.3.0 -o -n us-west-2 -b 0.0.0.0:2000 &
+          sleep 30
+
+      - name: Send invalid request
+        run: |
+          docker stats --no-stream
+          python3 integration/invalid_input.py
+          sleep 10
+          docker stats --no-stream
+
+      - name: Publish metrics on daemon startup
+        if: ${{ always() }}
+        run: |
+          if [[ "$(docker container inspect -f '{{.State.Status}}' xray-daemon )" != "running" ]]; then
+            aws cloudwatch put-metric-data --metric-name DaemonImageStartupFailureFromDockerhub --dimensions failure=rate --namespace MonitorDaemon --value 1 --timestamp $(date +%s)
+          else
+            aws cloudwatch put-metric-data --metric-name DaemonImageStartupFailureFromDockerhub --dimensions failure=rate --namespace MonitorDaemon --value 0 --timestamp $(date +%s)
+          fi
