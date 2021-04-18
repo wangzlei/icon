@@ -31,25 +31,10 @@ jobs:
         with:
           submodules: true
 
-#      - name: Checkout submodules
-#        run: |
-#          git submodule update --init --recursive
-#          cd opentelemetry-lambda
-#          git fetch
-#          git merge origin/master
-
       - name: adot custom
         run: |
           cp -rf adot/* opentelemetry-lambda/
 
-      - name: Configure AWS Credentials CN
-        uses: aws-actions/configure-aws-credentials@v1
-        if: ${{ matrix.region == 'cn-north-1' ||  matrix.region == 'cn-northwest-1'}}
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_TEST_CN }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_TEST_CN }}
-          mask-aws-account-id: false
-          aws-region: ${{matrix.region}}
       - name: Configure AWS Credentials standard
         uses: aws-actions/configure-aws-credentials@v1
         if: ${{ matrix.region != 'cn-north-1' &&  matrix.region != 'cn-northwest-1'}}
@@ -65,9 +50,10 @@ jobs:
           cd opentelemetry-lambda
           echo "OTEL_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-      - name: Set layer name
+      - name: Set layer/stack name
         run: |
           echo "OTEL_LAMBDA_LAYER=$LAYER-$OTEL_SHA-$ADOT_SHA" >> $GITHUB_ENV
+          echo "OTEL_LAMBDA_STACK=$STACK-$OTEL_SHA-$ADOT_SHA" >> $GITHUB_ENV
 
       - name: deploy layer
         run: |
@@ -89,32 +75,6 @@ jobs:
         with:
           repository: aws-observability/aws-otel-test-framework
           path: test-framework
-
-      - name: Set sample stack name
-        run: |
-          echo "OTEL_LAMBDA_STACK=$STACK-$OTEL_SHA-$ADOT_SHA" >> $GITHUB_ENV
-
-      - name: deploy sample
-        continue-on-error: true
-        working-directory: opentelemetry-lambda/python/sample-xray
-        run: |
-          echo $OTEL_LAMBDA_STACK
-          ./run.sh
-
-      - name: validate sample
-        run: |
-          endpoint=$(${{ env.UTILS }}/endpoint.sh)
-          curl $endpoint
-          cp opentelemetry-lambda/python/sample-xray/test/expected.mustache test-framework/validator/src/main/resources/expected-data-template/lambdaExpectedTrace.mustache
-          cd test-framework
-          ./gradlew :validator:run  --args="-c default-lambda-validation.yml --endpoint $endpoint --region $AWS_REGION"
-
-      - name: install otel layer to sample
-        run: |
-          layerArn=$(${{ env.UTILS }}/layer.sh -a)
-          echo $layerArn
-          ${{ env.UTILS }}/update.sh -l $layerArn
-          ${{ env.UTILS }}/update.sh -e "Variables={OPENTELEMETRY_COLLECTOR_CONFIG_FILE=/opt/collector-config/config.yaml,AWS_LAMBDA_EXEC_WRAPPER=/opt/python/otel-instrument}"
 
       - name: validate layer
         run: |
