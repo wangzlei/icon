@@ -57,17 +57,22 @@ jobs:
 
       - name: deploy layer
         run: |
-          layerArn=$($UTILS/layer.sh -a)
-          echo $layerArn
-          if [[ $layerArn == "null" ]]; then
-            echo "building and deploying layer"
-            cd $LAYER_PATH
-            ./run.sh
-          else
-            echo "skip deploy layer"
-          fi
-          layerArn=$($UTILS/layer.sh -a)
-          echo $layerArn
+          cd $LAYER_PATH
+          ./run.sh
+
+#      - name: deploy layer
+#        run: |
+#          layerArn=$($UTILS/layer.sh -a)
+#          echo $layerArn
+#          if [[ $layerArn == "null" ]]; then
+#            echo "building and deploying layer"
+#            cd $LAYER_PATH
+#            ./run.sh
+#          else
+#            echo "skip deploy layer"
+#          fi
+#          layerArn=$($UTILS/layer.sh -a)
+#          echo $layerArn
 
       - name: Checkout test framework
         uses: actions/checkout@v2
