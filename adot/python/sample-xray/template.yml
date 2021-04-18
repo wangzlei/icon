@@ -1,12 +1,12 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: 'AWS::Serverless-2016-10-31'
 Description: OpenTelemetry Python Lambda layer for Python 3.8 Runtime
+Parameters:
+  LayerArn:
+    Type: String
+    Description: Lambda layer ARN to be added
+    Default: arn:aws:lambda:us-west-2:611364707713:layer:py38-preview:7
 Resources:
-  layer:
-    Type: AWSUtility::CloudFormation::CommandRunner
-    Properties:
-      Command:
-        Fn::Sub: '../layerArn.sh'
   api:
     Type: AWS::Serverless::Api
     Properties:
@@ -19,7 +19,7 @@ Resources:
       Handler: lambda_function.lambda_handler
       Runtime: python3.8
       CodeUri: ./function
-      Description: OTel Python Lambda dry Sample
+      Description: Build OTel Python Lambda layer and sample app from scratch
       MemorySize: 512
       Timeout: 15
       Policies:
@@ -27,12 +27,12 @@ Resources:
         - AWSLambda_ReadOnlyAccess
         - AWSXrayWriteOnlyAccess
         - AmazonS3FullAccess
-      Tracing: Active
       Environment:
         Variables:
           AWS_LAMBDA_EXEC_WRAPPER: /opt/python/otel-instrument
+      Tracing: Active
       Layers:
-        - Fn::GetAtt: layer.Output
+        - !Ref LayerArn
       Events:
         getEndpoint:
           Type: Api

@@ -2,7 +2,7 @@ name: integration-python
 env:
   LAYER: py38-layer
   LAYER_PATH: 'opentelemetry-lambda/python/src'
-  STACK: py38-sample
+  STACK: py38-layer
   UTILS: ${{ github.workspace }}/opentelemetry-lambda/utils/sam
 
 on:
