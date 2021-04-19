@@ -73,5 +73,6 @@ jobs:
           ./gradlew :validator:run  --args="-c default-lambda-validation.yml --endpoint $endpoint --region $AWS_REGION"
 
       - name: clean sample
+        if: always()
         run: |
           ${{ env.UTILS }}/clean.sh
