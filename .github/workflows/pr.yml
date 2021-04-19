@@ -1,45 +1,54 @@
-name: "Pull Request"
+name: PR
 
 on:
   pull_request:
-    branches:
-      - main
-
-env:
-  AWS_REGION: us-east-1
+    branches: [ main ]
 
 jobs:
-  PR-Python:
+  tox:
     runs-on: ubuntu-latest
-
+    
     strategy:
       matrix:
         python: [3.8]
+    
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python }}
+      - name: Install Tox and any other packages
+        run: pip install tox
+      - name: Run tox
+        run: |
+          echo tox...
+          cd sample-apps/python-lambda && tox
+
+  build:
+    needs: tox
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: ${{matrix.region}}
+      WORK_DIR: "sample-apps/python-lambda"
+    
+    strategy:
+      matrix:
+        region: [us-west-1]
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-
-      - name: Checkout submodules
+      - uses: actions/checkout@v2
+          
+      - name: init
         run: |
-          git submodule update --init --recursive
-          cd opentelemetry-lambda
-          git fetch
-          git merge origin/master
-
-      - name: adot custom
+          echo $AWS_REGION
+          cd $WORK_DIR
+          chmod -R +x tools
+          cp tools/* .
+      
+      - name: build
         run: |
-          cp -rf adot/* opentelemetry-lambda/
-
-      - name: Tox
-        working-directory: opentelemetry-lambda/python/src
-        run: |
-          pip install tox
-          tox
-      - name: build layer
-        working-directory: opentelemetry-lambda/python/src
-        run: ./run.sh -b
-
-      - name: build sample
-        working-directory: opentelemetry-lambda/python/sample-xray
-        run: ./run.sh -b
+          cd $WORK_DIR
+          chmod +x run.sh
+          ./run.sh -b
