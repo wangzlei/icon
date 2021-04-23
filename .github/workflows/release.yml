@@ -24,7 +24,7 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           role-to-assume: ${{ secrets.AWS_ASSUME_ROLE_ARN }}
           role-duration-seconds: 1200
-          aws-region: us-east-1
+          aws-region: us-west-2
       - name: Cache layer
         uses: actions/cache@v2
         id: cache-layer
